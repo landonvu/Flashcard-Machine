@@ -118,6 +118,23 @@ def run_flashcard_system():
     print("ALL CYCLES FINISHED!".center(40))
     print("="*40)
 
+def password_system:
+    users_db = {}
+
+    print("--- FLASHCARD SYSTEM SIGN-UP ---")
+    new_user = input("Create a username: ")
+    new_pass = input("Create a password: ")
+    users_db[new_user] = new_pass
+    print("Account created successfully!\n")
+
+    print("--- LOG IN ---")
+    login_username = input("Username: ")
+    login_password = input("Password: ")
+
+    # Check if the username exists AND the password matches
+    if login_username in users_db and users_db[login_username] == login_password:
+        print("\nAccess Granted! Running Simulation...\n")
+
 #-------------Run Code------------#
 print("=" * 50)
 print(title.center(50))
