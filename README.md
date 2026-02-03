@@ -142,5 +142,3 @@ print(title.center(50))
 print("=" * 50 + "\n")
 run_flashcard_system()
 more = "no"
-# Link to run the code
-[Flashcards.py](https://github.com/user-attachments/files/24993915/Flashcards.py)
