@@ -1,5 +1,4 @@
 #-----------Imports-----------#
-
 import random
 import time
 import urllib.parse
@@ -16,31 +15,57 @@ def get_confirmation(prompt):
         choice = input(prompt).lower().strip()
         if choice in YES: return "yes"
         if choice in NO: return "no"
-
         print(f"Invalid command. Try '{random.choice(YES)}' or '{random.choice(NO)}'.")
         time.sleep(1)
-        print('\033[1A\033[K', end='')
 
-def refresh_screen(title):
-    # This clears the entire terminal window
-    print("\033[H\033[2J", end="")
-
-    # Now the title is automatically reprinted
+def refresh_screen(title_text):
+    print("\033[H\033[2J", end="") # Clears screen
     print("=" * 50)
-    print(title.center(50))
+    print(title_text.center(50))
     print("=" * 50 + "\n")
 
 #---------Core Functions---------#
 
+def create_flashcard_html(flashcards, filename="study_guide.html"):
+    # Updated to handle MULTIPLE cards in one file
+    cards_html = ""
+    for q, a in flashcards.items():
+        cards_html += f"""
+        <div class="card">
+            <div class="question">Q: {q}</div>
+            <hr>
+            <div class="answer">A: {a}</div>
+        </div>
+        """
+
+    html_template = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{ font-family: sans-serif; background-color: #2c3e50; padding: 50px; display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }}
+            .card {{ background: white; width: 300px; padding: 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; }}
+            .question {{ color: #e67e22; font-size: 1.1em; font-weight: bold; }}
+            .answer {{ color: #27ae60; font-size: 1.3em; margin-top: 10px; }}
+        </style>
+    </head>
+    <body>
+        {cards_html}
+    </body>
+    </html>
+    """
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(html_template)
+
 def run_flashcard_system():
     flashcards = {}
-
-    # --- PHASE 1: ENTERING QUESTIONS ---
     adding_questions = True
+    
     while adding_questions:
         q = input("\nEnter the question: ")
         a = input("Enter the answer: ")
-
+        
         query = urllib.parse.quote(q)
         print(f"Verify here if needed: https://www.google.com/search?q={query}")
 
@@ -48,19 +73,9 @@ def run_flashcard_system():
         if confirm == "yes":
             flashcards[q] = a
             print("Question saved!")
-            time.sleep(1)
-            k = True
-        if confirm == "no":
-            print("Restarting question!")
-            time.sleep(1.5)
-            print('\033[1A\033[K')
-            print("Restarting question!")
-            time.sleep(1.5)
-            print('\033[1A\033[K')
-            print("Restarting question!")
-            time.sleep(1.5)
-            print('\033[1A\033[K')
-            run_flashcard_system()
+        else:
+            print("Restarting question...")
+            continue
 
         more = get_confirmation("Add another question? ")
         if more == "no":
@@ -70,119 +85,56 @@ def run_flashcard_system():
         print("No questions saved. Exiting.")
         return
 
-    # --- PHASE 2: SETUP CYCLES ---
+    # Generate the HTML file once all questions are in
+    create_flashcard_html(flashcards)
+    print("\n--- HTML Study Guide Generated! ---")
+
     try:
-        cycles = int(input("\nHow many times do you want to repeat the question set? "))
+        cycles = int(input("\nHow many times do you want to repeat the set? "))
     except ValueError:
-        print("Invalid number. Setting cycles to 1.")
         cycles = 1
 
-    cycle_time = 5
-    while cycle_time > 0:
-        print(f"\r\t\tReady? We will begin in... {cycle_time}", end="")
+    # Simple countdown
+    for i in range(3, 0, -1):
+        print(f"\rReady? Starting in... {i}", end="")
         time.sleep(1)
-        cycle_time -= 1
 
-    print("\r\t\t[ GO! ]" + " " * 20) # Clears the line and starts
-
-    refresh_screen("--- FLASHCARD MACHINE ---")
-
-
-    # --- PHASE 3: QUIZZING ---
+    # Quizzing Loop
     for cycle_num in range(1, cycles + 1):
-        print(f"\n--- ROUND {cycle_num} OF {cycles} ---".center(40))
-        time.sleep(1)
-
+        refresh_screen(f"ROUND {cycle_num} OF {cycles}")
         q_list = list(flashcards.keys())
-        random.shuffle(q_list) # Mix them up each round
-
-        round_score = 0
+        random.shuffle(q_list)
+        score = 0
 
         for current_q in q_list:
             print(f"\nQUESTION: {current_q}")
             user_ans = input("Your Answer: ").strip().lower()
-
             if user_ans == flashcards[current_q].lower().strip():
                 print("✨ Correct!")
-                round_score += 1
+                score += 1
             else:
                 print(f"❌ Wrong. The answer was: {flashcards[current_q]}")
-
-        print(f"\nRound {cycle_num} Complete! Score: {round_score}/{len(q_list)}")
+        
+        print(f"\nRound Complete! Score: {score}/{len(q_list)}")
         time.sleep(2)
 
-    print("\n" + "="*40)
-    print("ALL CYCLES FINISHED!".center(40))
-    print("="*40)
-
-def password_system:
+def password_system():
     users_db = {}
-
     print("--- FLASHCARD SYSTEM SIGN-UP ---")
     new_user = input("Create a username: ")
     new_pass = input("Create a password: ")
     users_db[new_user] = new_pass
-    print("Account created successfully!\n")
+    print("Account created!\n")
 
-    print("--- LOG IN ---")
-    login_username = input("Username: ")
-    login_password = input("Password: ")
-
-    # Check if the username exists AND the password matches
-    if login_username in users_db and users_db[login_username] == login_password:
-        print("\nAccess Granted! Running Simulation...\n")
-
-def create_flashcard_html(question, answer, filename="study_guide.html"):
-    # The HTML structure
-    html_template = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>Flashcard Machine</title>
-        <style>
-            body {{ 
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-                background-color: #2c3e50; 
-                display: flex; 
-                justify-content: center; 
-                padding-top: 50px;
-            }}
-            .card {{
-                background: white;
-                width: 400px;
-                padding: 20px;
-                border-radius: 15px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-                text-align: center;
-            }}
-            .question {{ color: #e67e22; font-size: 1.2em; font-weight: bold; }}
-            .answer {{ color: #27ae60; font-size: 1.5em; margin-top: 10px; }}
-            hr {{ border: 0; height: 1px; background: #eee; margin: 20px 0; }}
-        </style>
-    </head>
-    <body>
-        <div class="card">
-            <div class="question">Q: {question}</div>
-            <hr>
-            <div class="answer">A: {answer}</div>
-        </div>
-    </body>
-    </html>
-    """
-
-    # Writing the file
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(html_template)
-    print(f"Successfully updated {filename}!")
-
-# Example of how you'd use it in this file:
-# create_flashcard_html("What is cos(pi/3)?", "1/2")
+    while True:
+        print("--- LOG IN ---")
+        u = input("Username: ")
+        p = input("Password: ")
+        if u in users_db and users_db[u] == p:
+            print("\nAccess Granted!\n")
+            break
+        print("Invalid credentials. Try again.")
 
 #-------------Run Code------------#
 password_system()
-print("=" * 50)
-print(title.center(50))
-print("=" * 50 + "\n")
 run_flashcard_system()
-more = "no"
