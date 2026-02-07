@@ -132,6 +132,53 @@ def password_system:
     if login_username in users_db and users_db[login_username] == login_password:
         print("\nAccess Granted! Running Simulation...\n")
 
+def create_flashcard_html(question, answer, filename="study_guide.html"):
+    # The HTML structure
+    html_template = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Flashcard Machine</title>
+        <style>
+            body {{ 
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                background-color: #2c3e50; 
+                display: flex; 
+                justify-content: center; 
+                padding-top: 50px;
+            }}
+            .card {{
+                background: white;
+                width: 400px;
+                padding: 20px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                text-align: center;
+            }}
+            .question {{ color: #e67e22; font-size: 1.2em; font-weight: bold; }}
+            .answer {{ color: #27ae60; font-size: 1.5em; margin-top: 10px; }}
+            hr {{ border: 0; height: 1px; background: #eee; margin: 20px 0; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="question">Q: {question}</div>
+            <hr>
+            <div class="answer">A: {answer}</div>
+        </div>
+    </body>
+    </html>
+    """
+
+    # Writing the file
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(html_template)
+    print(f"Successfully updated {filename}!")
+
+# Example of how you'd use it in this file:
+# create_flashcard_html("What is cos(pi/3)?", "1/2")
+
 #-------------Run Code------------#
 password_system()
 print("=" * 50)
