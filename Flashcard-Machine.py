@@ -10,6 +10,13 @@ import csv
 DATA_DIR = "user_data"  # Folder for user.json
 HTML_DIR = "study_guides" # Folder for HTML exports
 
+# Folder for your generated study guides
+HTML_EXPORT_DIR = "study_guides"
+
+# Ensure the folder exists
+if not os.path.exists(HTML_EXPORT_DIR):
+    os.makedirs(HTML_EXPORT_DIR)
+
 GUIDES_DIR = "saved_guides" 
 os.makedirs(GUIDES_DIR, exist_ok=True)
 
@@ -86,20 +93,45 @@ def exit_main():
         time.sleep(3)
         pass
 
-def create_flashcard_html(flashcards, topic, filename):
-    full_path = os.path.join(HTML_DIR, filename + ".html")
-    cards_html = "".join([f"""
-        <div class="card">
-            <div class="question"><b>QUESTION:</b><br>{q}</div>
-            <div class="divider"></div>
-            <div class="answer"><b>ANSWER:</b><br>{a}</div>
-        </div>""" for q, a in flashcards.items()])
+def create_flashcard_html(flashcards, topic):
+    # Create the full path: study_guides/Topic_Name.html
+    filename = f"{topic.replace(' ', '_')}_study_guide.html"
+    filepath = os.path.join(HTML_EXPORT_DIR, filename)
 
-    html_full_body = f"<html><body style='background:#1a1a2e; color:white; font-family:sans-serif;'><h1>{topic}</h1>{cards_html}</body></html>"
+    cards_html = ""
+    for q, a in flashcards.items():
+        cards_html += f"""
+        <div class="card">
+            <div class="question"><b>Q:</b> {q}</div>
+            <div class="divider"></div>
+            <div class="answer"><b>A:</b> {a}</div>
+        </div>
+        """
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>{topic} Flashcards</title>
+        <style>
+            body {{ font-family: sans-serif; background: #1a1a2e; color: white; display: flex; flex-wrap: wrap; justify-content: center; padding: 20px; }}
+            .card {{ background: white; color: #333; width: 250px; margin: 10px; padding: 20px; border-radius: 10px; border-top: 5px solid #4CAF50; }}
+            .question {{ font-weight: bold; min-height: 40px; }}
+            .divider {{ height: 1px; background: #ddd; margin: 10px 0; }}
+            .answer {{ color: #27ae60; font-weight: bold; }}
+        </style>
+    </head>
+    <body>
+        <h1 style="width: 100%; text-align: center;">Topic: {topic}</h1>
+        {cards_html}
+    </body>
+    </html>
+    """
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(html_content)
     
-    with open(full_path, "w", encoding="utf-8") as f:
-        f.write(html_full_body)
-    return full_path
+    print(f"🌐 Study Guide created at: {filepath}")
 
 def sign_up():
     print("\n--- FLASHCARD SYSTEM SIGN-UP ---")
