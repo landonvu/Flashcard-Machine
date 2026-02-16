@@ -4,247 +4,276 @@ import time
 import urllib.parse
 import os
 import json
+import csv
 
 #-----------User Data----------#
+DATA_DIR = "user_data"  # Folder for user.json
+HTML_DIR = "study_guides" # Folder for HTML exports
+
+# Create the folders if they don't exist
+if not os.path.exists("user_data"):
+    os.makedirs("user_data")
+if not os.path.exists("study_guides"):
+    os.makedirs("study_guides")
+
+# Ensure directories exist
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(HTML_DIR, exist_ok=True)
+
+USER_DB_PATH = os.path.join(DATA_DIR, "users.json")
 
 def save_json(data, filename):
     try:
         with open(filename, "w") as f:
-            json.dump(data, f, indent=4) # indent=4 makes it pretty to read
+            json.dump(data, f, indent=4)
     except Exception as e:
         print(f"❌ Error saving {filename}: {e}")
 
 def load_json(filename):
     if not os.path.exists(filename):
-        return {}  # Return empty if file is missing
+        return {}
     try:
         with open(filename, "r") as f:
-            return json.load(f)
+            content = f.read().strip()
+            return json.loads(content) if content else {}
     except:
-        return {}  # Return empty if file is corrupted
+        return {}
+
+users_db = load_json(USER_DB_PATH)
 
 #------------Global Config------------#
-YES = ["yes", "y", "yes.", "correct", "it is correct.", "ye"]
-NO = ["no", "n", "no.", "nope", "nope."]
-
-users_db = load_json("users.json")
-
-question_count = 0
-correct_count = 0
-
-title = "--- FLASHCARD MACHINE ---"
+YES = ["yes", "y", "correct", "ye"]
+NO = ["no", "n", "nope"]
 
 def get_confirmation(prompt):
     while True:
         choice = input(prompt).lower().strip()
         if choice in YES: return "yes"
         if choice in NO: return "no"
-        print(f"Invalid command. Try '{random.choice(YES)}' or '{random.choice(NO)}'.")
-        time.sleep(1)
-        print('\033[F\033[K', end='') # Clear the invalid line
+        print(f"Invalid command. Try 'yes' or 'no'.")
 
 def refresh_screen(title_text):
-    print("\033[H\033[2J", end="") # Clears screen
+    print("\033[H\033[2J", end="") 
     print("=" * 50)
     print(title_text.center(50))
     print("=" * 50 + "\n")
 
+def make_clickable(url, text):
+    # Standard terminal hyperlink escape sequence
+    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
+
 #---------Core Functions---------#
 
-def create_flashcard_html(flashcards, filename="study_guide.html"):
-    cards_html = ""
-    for q, a in flashcards.items():
-        # Using a Template Literal style for the cards
-        cards_html += f"""
+def export_to_csv(flashcards, topic):
+    filename = os.path.join(HTML_DIR, f"{topic}_export.csv")
+    with open(filename, mode='w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(["Question", "Answer"])
+        for q, a in flashcards.items():
+            writer.writerow([q, a])
+    print(f"📊 Data exported to {filename}")
+
+def create_flashcard_html(flashcards, topic, filename):
+    full_path = os.path.join(HTML_DIR, filename + ".html")
+    cards_html = "".join([f"""
         <div class="card">
             <div class="question"><b>QUESTION:</b><br>{q}</div>
             <div class="divider"></div>
             <div class="answer"><b>ANSWER:</b><br>{a}</div>
-        </div>
-        """
+        </div>""" for q, a in flashcards.items()])
 
-    html_full_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Flashcard Machine Output</title>
-        <style>
-            body {{ 
-                font-family: 'Segoe UI', sans-serif; 
-                background-color: #1a1a2e; 
-                color: white; 
-                display: flex; 
-                flex-wrap: wrap; 
-                justify-content: center; 
-                padding: 40px;
-            }}
-            .card {{ 
-                background: white; 
-                color: #333; 
-                width: 280px; 
-                margin: 15px; 
-                padding: 20px; 
-                border-radius: 12px; 
-                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-                border-top: 8px solid #4CAF50;
-                text-align: center;
-            }}
-            .question {{ font-size: 1.1em; color: #2c3e50; min-height: 50px; }}
-            .divider {{ height: 2px; background: #eee; margin: 15px 0; }}
-            .answer {{ font-size: 1.2em; color: #27ae60; font-weight: bold; }}
-        </style>
-    </head>
-    <body>
-        {cards_html}
-    </body>
-    </html>
-    """
+    html_full_body = f"<html><body style='background:#1a1a2e; color:white; font-family:sans-serif;'><h1>{topic}</h1>{cards_html}</body></html>"
     
-    with open(filename, "w", encoding="utf-8") as f:
+    with open(full_path, "w", encoding="utf-8") as f:
         f.write(html_full_body)
+    return full_path
 
 def sign_up():
     print("\n--- FLASHCARD SYSTEM SIGN-UP ---")
     while True:
-        new_user = input("Create a username: ").strip()
+        # Added a 'back' option
+        new_user = input("Create a username (or type 'back' to exit): ").strip()
+        
+        if new_user.lower() == 'back':
+            return None # Signal to go back to the main menu
+            
         if new_user in users_db:
             print("❌ Error: That username is already taken.")
         elif new_user == "":
             print("❌ Error: Username cannot be blank.")
         else:
-            new_pass = input(f"Create a password for {new_user}: ")
-            users_db[new_user] = new_pass
-            save_json(users_db, "users.json")
-            time.sleep(3)
-            refresh_screen(f"Account for '{new_user}' created successfully!")
-            break 
+            new_pass = input(f"Create a password for {new_user} (have at least 3 characters): ")
+            if len(new_pass) < 3:
+                print("Not enough characters. Please try logging in again.")
+                time.sleep(2)
+                sign_up()
+            else:
+                users_db[new_user] = new_pass
+                save_json(users_db, "users.json")
+                print(f"\n✅ Account for '{new_user}' created! Logging you in...")
+                time.sleep(2)
+            return new_user 
 
 def password_system():
-    account_fail = 0
     while True:
         ac = input("Do you already have an account? (yes/no): ").lower().strip()
         
         if ac in NO:
-            sign_up()
-            continue # Go back to ask if they have an account (to log in)
+            user = sign_up()
+            if user: return user
+            continue # If they typed 'back', loop back to the start
             
         elif ac in YES:
             if not users_db:
-                print("❌ No accounts exist. Please sign up first.")
+                print("❌ No accounts exist. Sending you to Sign-up...")
                 time.sleep(1.5)
-                print("\033[F\033[K" * 2, end="") # Clear message and prompt
+                user = sign_up()
+                if user: return user
                 continue
 
-            u = input("Username: ").strip()
-            p = input("Password: ")
-        
-            if u in users_db and users_db[u] == p:
-                print(f"\nAccess Granted! Welcome back, {u}.\n")
-                return True
-            else:
-                account_fail += 1
-                print(f"❌ Invalid. {4 - account_fail} attempts left.")
-                time.sleep(1.5)
-                # Clear Username, Password, and Error lines to keep it tidy
-                print("\033[F\033[K" * 3, end="") 
+            attempts = 4
+            while attempts > 0:
+                # Added the 'noaccount' check here
+                u = input("Username (type 'noaccount' to sign up): ").strip()
                 
-                if account_fail >= 4:
-                    print("SYSTEM LOCKED. Too many failed attempts.")
-                    exit()
+                if u.lower() == "noaccount":
+                    user = sign_up()
+                    if user: return user
+                    break # Break the attempt loop to go back to the 'yes/no' prompt
+                
+                p = input("Password: ")
+        
+                if u in users_db and users_db[u] == p:
+                    print(f"\nAccess Granted! Welcome back, {u}.\n")
+                    return u
+                else:
+                    attempts -= 1
+                    print(f"❌ Invalid. {attempts} attempts left.")
+                    time.sleep(1)
+            
+            if attempts == 0:
+                exit("SYSTEM LOCKED. Too many failed attempts.")
         else:
             print("❌ Invalid answer. Please type yes or no.")
-            time.sleep(1)
-            print("\033[F\033[K" * 2, end="")
 
-def run_flashcard_system():
+def run_flashcard_system(username):
     flashcards = {}
-    adding_questions = True
+    wrong_answers = []
+    refresh_screen(f"Welcome, {username}!")
+    topic = input("Enter study topic (e.g., Physics, History): ").strip() or "General"
     
-    while adding_questions:
+    while True:
         global question_count
         q = input("\nEnter the question: ")
         a = input("Enter the answer: ")
         
-        query = urllib.parse.quote(q)
-        print(f"Verify: https://www.google.com/search?q={query}")
+        query = urllib.parse.quote(f"{q}")
+        link = make_clickable(f"https://www.google.com/search?q={query}", "[CLICK HERE TO VERIFY]")
+        print(f"Check source: {link}")
 
-        if get_confirmation("Is this correct? ") == "yes":
+        if get_confirmation("Save this card? ") == "yes":
             flashcards[q] = a
-            print("Question saved!")
-            question_count += 1
-        else:
-            print("Restarting question...")
-            time.sleep(2)
-            continue
+        
+        if get_confirmation("Add another? ") == "no":
+            break
 
-        if get_confirmation("Add another question? ") == "no":
-            adding_questions = False
+    if not flashcards: return
 
-    if not flashcards:
-        return
-
-    create_flashcard_html(flashcards)
-    print("\n--- Study Guide Generated! ---")
+    nhf = input("What do you want to name this flashcard set? ")
+    safe_topic = "".join(x for x in topic if x.isalnum())
+    filename = f"{safe_topic} study guide"
+    create_flashcard_html(flashcards, topic, filename)
+    print(f"\n✅ {filename} generated!")
+    time.sleep(1)
+    print(f"\n{nhf} loading...")
+    time.sleep(3)
 
     try:
-        cycles = int(input("\nRepeat how many times? "))
-        question_count = question_count * cycles
-    except ValueError:
+        cycles = int(input("\nHow many study rounds? "))
+    except:
         cycles = 1
 
-    for cycle_num in range(1, cycles + 1):
-        refresh_screen(f"ROUND {cycle_num} OF {cycles}")
-        q_list = list(flashcards.keys())
-        random.shuffle(q_list)
-        
-        for current_q in q_list:
-            global correct_count
-            print(f"\nQUESTION: {current_q}")
-            user_ans = input("Your Answer: ").strip().lower()
-            if user_ans == flashcards[current_q].lower().strip():
-                print("✨ Correct!")
-                correct_count += 1
-            else:
-                print(f"❌ Wrong. The answer was: {flashcards[current_q]}")
-        time.sleep(2)
-    # --- CALCULATE FINAL SCORE ---
-    if question_count > 0:
-        percent = (correct_count / question_count) * 100
-    else:
-        percent = 0
+    correct_total = 0
+    total_q_asked = len(flashcards) * cycles
 
-    # Determine Ranking
-    if percent >= 90:
-        ranking = "S-Tier ⭐"
-    elif 80 <= percent < 90:
-        ranking = "A-Tier 👌"
-    elif 70 <= percent < 80:
-        ranking = "E-Tier 👍"
-    elif 60 <= percent < 70:
-        ranking = "B-Tier 👏"
-    elif 50 <= percent < 60:
-        ranking = "C-Tier 🤔"
-    elif 40 <= percent < 50:
-        ranking = "D-Tier 😬"
-    else:
-        ranking = "F-Tier 😟, try again next time..."
+    # --- STUDY LOOP ---
+    # Initialize these at the start of the function!
+    local_correct = 0
+    local_total = 0
+
+    for r in range(1, cycles + 1):
+        refresh_screen(f"{topic.upper()} - ROUND {r}")
+        qs = list(flashcards.keys())
+        random.shuffle(qs)
+        
+        for q in qs:
+            local_total += 1
+            ans = input(f"\nQUESTION: {q}\nYour Answer: ").strip().lower()
+            
+            if ans == flashcards[q].lower().strip():
+                print("✨ Correct!")
+                local_correct += 1
+            else:
+                print(f"❌ Wrong. Answer: {flashcards[q]}")
+                # We store the mistake as a dictionary
+                wrong_answers.append({
+                    "q": q, 
+                    "correct": flashcards[q], 
+                    "user_said": ans
+                })
+        time.sleep(1)
+
+    # --- CALCULATE FINAL SCORE ---
+    percent = (local_correct / local_total) * 100 if local_total > 0 else 0
 
     # --- RESULTS & RANKING LOOP ---
     showing_results = True
     while showing_results:
         refresh_screen("RESULTS")
-        time.sleep(1.5)
-        print(f"\n" + "-"*20)
-        print(f"Final Score: {correct_count}/{question_count}")
-        time.sleep(3)
+        time.sleep(1.0)
+        print("-" * 25)
+        print(f"Final Score: {local_correct}/{local_total}")
         print(f"Grade: {percent:.2f}%")
-        print("-" * 20)
+        print("-" * 25)
         
-        time.sleep(1.5)
-        
+        if wrong_answers:
+            print(f"\n⚠️ You missed {len(wrong_answers)} questions.")
+            see_mistakes = input("View your mistake log? (yes/no): ").lower().strip()
+            if see_mistakes in YES:
+                refresh_screen("MISTAKE LOG")
+                for item in wrong_answers:
+                    q_query = urllib.parse.quote(item['q'])
+                    search_link = make_clickable(f"https://google.com/search?q={q_query}", "[Search for Answer]")
+                    
+                    print(f"Q: {item['q']}")
+                    print(f"   ❌ Your Answer: {item['user_said']}")
+                    print(f"   ✅ Correct Answer: {item['correct']}")
+                    print(f"   🔗 {search_link}")
+                    print("-" * 20)
+                input("\nPress Enter to return to Summary...")
+                continue # Go back to the Results screen
+        else:
+            print("Great job! You didn't miss anything!")
+
+        # Original Ranking Logic
         leadersee = input("\nDo you want to see your ranking detail? (yes/no): ").lower().strip()
-        
         if leadersee in YES:
+            # Determine Ranking
+            if percent >= 90:
+                ranking = "S-Tier ⭐"
+            elif 80 <= percent < 90:
+                ranking = "A-Tier 👌"
+            elif 70 <= percent < 80:
+                ranking = "E-Tier 👍"
+            elif 60 <= percent < 70:
+                ranking = "B-Tier 👏"
+            elif 50 <= percent < 60:
+                ranking = "C-Tier 🤔"
+            elif 40 <= percent < 50:
+                ranking = "D-Tier 😬"
+            else:
+                ranking = "F-Tier 😟, try again next time..."
+        
             refresh_screen("RANKING SYSTEM")
             print("1. S-Tier: 90-100%")
             time.sleep(2)
@@ -271,9 +300,14 @@ def run_flashcard_system():
         else:
             showing_results = False
 
-    print("\nThank you for using Flashcard Machine! Goodbye.")
+        print("\nThank you for using Flashcard Machine! Goodbye!")
+        pass
+        
+        # Exit logic
+        if get_confirmation("\nExit to main menu? ") == "yes":
+            showing_results = False
 
 #-------------Run Code------------#
-refresh_screen(title)
-if password_system():
-    run_flashcard_system()
+current_user = password_system()
+if current_user:
+    run_flashcard_system(current_user)
